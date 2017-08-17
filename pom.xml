@@ -284,9 +284,23 @@
                     </dependency>
                 </dependencies>
             </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>1.6.0</version>
+                <configuration>
+                    <executable>java</executable>
+                    <arguments>
+                        <argument>-classpath</argument>
+                        <classpath/>
+                        <argument>org.traccar.Main</argument>
+                        <argument>./config/develop.xml</argument>
+                    </arguments>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
-    
+
     <reporting>
         <plugins>
             <plugin>
