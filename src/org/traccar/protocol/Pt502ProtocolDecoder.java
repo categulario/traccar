@@ -26,6 +26,8 @@ import org.traccar.model.Position;
 
 import java.net.SocketAddress;
 import java.util.regex.Pattern;
+import java.util.Objects;
+import java.nio.ByteBuffer;
 
 public class Pt502ProtocolDecoder extends BaseProtocolDecoder {
 
@@ -33,7 +35,18 @@ public class Pt502ProtocolDecoder extends BaseProtocolDecoder {
 
     private byte[] photo;
 
-    private static final String HEADER_ALARM = new String(new byte[] {0, 1});
+    private static final byte HEADER_CMD         =  0;
+    private static final byte HEADER_GID         =  1;
+    private static final byte HEADER_TIME        =  2;
+    private static final byte HEADER_FIX_FLAG    =  3;
+    private static final byte HEADER_LATITUDE    =  4;
+    private static final byte HEADER_NORTH_SOUTH =  5;
+    private static final byte HEADER_LONGITUDE   =  6;
+    private static final byte HEADER_EAST_WEST   =  7;
+    private static final byte HEADER_SPEED       =  8;
+    private static final byte HEADER_HEADING     =  9;
+    private static final byte HEADER_DATE        = 10;
+    private static final byte HEADER_END         = 13;
 
     public Pt502ProtocolDecoder(Pt502Protocol protocol) {
         super(protocol);
@@ -87,6 +100,60 @@ public class Pt502ProtocolDecoder extends BaseProtocolDecoder {
         }
     }
 
+    private Position decodeDelta(
+            Channel channel, SocketAddress remoteAddress, ByteBuffer msg, Position position) throws Exception {
+        if (msg.get() != '@') {
+            return null;
+        }
+
+        msg.get(); // Skip second byte whose purpose is still unknown
+
+        while (msg.hasRemaining()) {
+            byte infoType = msg.get();
+            int overwriteIndex = msg.get();
+            int infoLength = msg.get();
+
+            byte[] rawInfo = new byte[infoLength];
+            msg.get(rawInfo);
+            String strInfo = new String(rawInfo);
+
+            switch (infoType) {
+                case HEADER_CMD:
+                    position.set(Position.KEY_ALARM, decodeAlarm(strInfo));
+                    break;
+
+                case HEADER_GID:
+                    DeviceSession ds = getDeviceSession(channel, remoteAddress);
+                    String currentID = "";
+
+                    if (ds != null) {
+                        currentID = Objects.toString(ds.getDeviceId(), "");
+                    }
+
+                    if (overwriteIndex > currentID.length()) {
+                        break;
+                    }
+
+                    String newID = currentID.substring(0, overwriteIndex) + strInfo;
+
+                    position.setDeviceId(Long.valueOf(newID));
+                    break;
+                default: break;
+            }
+        }
+
+        DeviceSession deviceSession = getDeviceSession(channel, remoteAddress);
+
+        if (deviceSession != null) {
+            position.setDeviceId(deviceSession.getDeviceId());
+            getLastLocation(position, null);
+
+            return position;
+        }
+
+        return null;
+    }
+
     @Override
     protected Object decode(
             Channel channel, SocketAddress remoteAddress, Object msg) throws Exception {
@@ -98,36 +165,7 @@ public class Pt502ProtocolDecoder extends BaseProtocolDecoder {
         Parser parser = new Parser(PATTERN, strdata);
 
         if (!parser.matches()) {
-            if (strdata.charAt(0) == '@') {
-                int index = 2;
-                int infoSet = 0;
-
-                while (index < strdata.length()) {
-                    String infoType = strdata.substring(index, index + 2); index += 2;
-                    int infoLength = strdata.charAt(index); index += 1;
-                    String rawInfo = strdata.substring(index, index + infoLength); index += infoLength;
-
-                    if (infoType.equals(HEADER_ALARM)) {
-                        String alarm = decodeAlarm(rawInfo);
-                        position.set(Position.KEY_ALARM, alarm);
-
-                        if (alarm != null) {
-                            infoSet++;
-                        }
-                    }
-                }
-
-                DeviceSession deviceSession = getDeviceSession(channel, remoteAddress);
-
-                if (infoSet > 0 && deviceSession != null) {
-                    position.setDeviceId(deviceSession.getDeviceId());
-                    getLastLocation(position, null);
-
-                    return position;
-                }
-            }
-
-            return null;
+            return decodeDelta(channel, remoteAddress, ByteBuffer.wrap(strdata.getBytes()), position);
         }
 
         String type = parser.next();
