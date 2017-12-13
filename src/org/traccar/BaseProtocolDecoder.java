@@ -147,7 +147,7 @@ public abstract class BaseProtocolDecoder extends ExtendedObjectDecoder {
                 return null;
             }
         } else {
-            if (channelDeviceSession == null) {
+            if (channelDeviceSession == null || uniqueIds.length > 0) {
                 long deviceId = findDeviceId(remoteAddress, uniqueIds);
                 if (deviceId != 0) {
                     channelDeviceSession = new DeviceSession(deviceId);

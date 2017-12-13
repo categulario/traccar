@@ -23,10 +23,11 @@ import org.traccar.helper.DateBuilder;
 import org.traccar.helper.Parser;
 import org.traccar.helper.PatternBuilder;
 import org.traccar.model.Position;
+import org.traccar.model.Device;
+import org.traccar.Context;
 
 import java.net.SocketAddress;
 import java.util.regex.Pattern;
-import java.util.Objects;
 import java.nio.ByteBuffer;
 
 public class Pt502ProtocolDecoder extends BaseProtocolDecoder {
@@ -108,6 +109,8 @@ public class Pt502ProtocolDecoder extends BaseProtocolDecoder {
 
         msg.get(); // Skip second byte whose purpose is still unknown
 
+        boolean gotNewInfo = false;
+
         while (msg.hasRemaining()) {
             byte infoType = msg.get();
             int overwriteIndex = msg.get();
@@ -119,39 +122,75 @@ public class Pt502ProtocolDecoder extends BaseProtocolDecoder {
 
             switch (infoType) {
                 case HEADER_CMD:
-                    position.set(Position.KEY_ALARM, decodeAlarm(strInfo));
+                    String alarm = decodeAlarm(strInfo);
+
+                    if (alarm != null) {
+                        position.set(Position.KEY_ALARM, decodeAlarm(strInfo));
+                        gotNewInfo = true;
+                    }
                     break;
 
                 case HEADER_GID:
-                    DeviceSession ds = getDeviceSession(channel, remoteAddress);
-                    String currentID = "";
+                    // try to get previous unique id, sometimes it's ok if it doesn't exist
+                    String currentUniqueID = "";
+                    DeviceSession currentDeviceSession = getDeviceSession(channel, remoteAddress);
 
-                    if (ds != null) {
-                        currentID = Objects.toString(ds.getDeviceId(), "");
+                    if (currentDeviceSession != null) {
+                        long currentDeviceID = currentDeviceSession.getDeviceId();
+
+                        if (currentDeviceID != 0) {
+                            Device device = Context.getIdentityManager().getById(currentDeviceID);
+
+                            currentUniqueID = device.getUniqueId();
+                        }
                     }
 
-                    if (overwriteIndex > currentID.length()) {
+                    // try to compute new unique id
+                    if (overwriteIndex > currentUniqueID.length()) {
                         break;
                     }
 
-                    String newID = currentID.substring(0, overwriteIndex) + strInfo;
+                    String newUniqueID = currentUniqueID.substring(0, overwriteIndex) + strInfo;
 
-                    position.setDeviceId(Long.valueOf(newID));
+                    // try to get new device session given new unique id
+                    DeviceSession newDeviceSession = getDeviceSession(channel, remoteAddress, newUniqueID);
+
+                    if (newDeviceSession == null) {
+                        break;
+                    }
+
+                    long newDeviceID = newDeviceSession.getDeviceId();
+
+                    if (newDeviceID != 0) {
+                        position.setDeviceId(newDeviceID);
+                        gotNewInfo = true;
+                    }
                     break;
                 default: break;
             }
         }
 
-        DeviceSession deviceSession = getDeviceSession(channel, remoteAddress);
-
-        if (deviceSession != null) {
-            position.setDeviceId(deviceSession.getDeviceId());
-            getLastLocation(position, null);
-
-            return position;
+        if (!gotNewInfo) {
+            return null;
         }
 
-        return null;
+        if (position.getDeviceId() == 0) {
+            DeviceSession deviceSession = getDeviceSession(channel, remoteAddress);
+
+            if (deviceSession == null) {
+                return null;
+            }
+
+            if (deviceSession.getDeviceId() == 0) {
+                return null;
+            }
+
+            position.setDeviceId(deviceSession.getDeviceId());
+        }
+
+        getLastLocation(position, null);
+
+        return position;
     }
 
     @Override
