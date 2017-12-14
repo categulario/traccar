@@ -190,6 +190,48 @@ public abstract class BaseProtocolDecoder extends ExtendedObjectDecoder {
         }
     }
 
+    /**
+     * Takes a position and fills missing fields in place using last position's data
+     * it also sets device time as current timestamp if not set previously
+     * @param position The position to fill
+     * @return void
+     */
+    public void fillMissingWithLastLocation(Position position) {
+        Position last = Context.getIdentityManager().getLastPosition(position.getDeviceId());
+
+        if (last == null) {
+            return;
+        }
+
+        if (position.getFixTime() == null) {
+            position.setFixTime(last.getFixTime());
+        }
+        if (!position.getValid()) {
+            position.setValid(last.getValid());
+        }
+        if (position.getLatitude() == 0) {
+            position.setLatitude(last.getLatitude());
+        }
+        if (position.getLongitude() == 0) {
+            position.setLongitude(last.getLongitude());
+        }
+        if (position.getAltitude() == 0) {
+            position.setAltitude(last.getAltitude());
+        }
+        if (position.getSpeed() == 0) {
+            position.setSpeed(last.getSpeed());
+        }
+        if (position.getCourse() == 0) {
+            position.setCourse(last.getCourse());
+        }
+        if (position.getAccuracy() == 0) {
+            position.setAccuracy(last.getAccuracy());
+        }
+        if (position.getDeviceTime() == null) {
+            position.setDeviceTime(new Date());
+        }
+    }
+
     @Override
     protected void onMessageEvent(
             Channel channel, SocketAddress remoteAddress, Object originalMessage, Object decodedMessage) {

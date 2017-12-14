@@ -23,7 +23,6 @@ import org.traccar.helper.DateBuilder;
 import org.traccar.helper.Parser;
 import org.traccar.helper.PatternBuilder;
 import org.traccar.model.Position;
-import org.traccar.model.Device;
 import org.traccar.Context;
 
 import java.net.SocketAddress;
@@ -107,6 +106,18 @@ public class Pt502ProtocolDecoder extends BaseProtocolDecoder {
             return null;
         }
 
+        // try to set this position's initial device id
+        DeviceSession deviceSession = getDeviceSession(channel, remoteAddress);
+
+        if (deviceSession == null) {
+            return null;
+        }
+        if (deviceSession.getDeviceId() == 0) {
+            return null;
+        }
+
+        position.setDeviceId(deviceSession.getDeviceId());
+
         msg.get(); // Skip second byte whose purpose is still unknown
 
         boolean gotNewInfo = false;
@@ -131,19 +142,8 @@ public class Pt502ProtocolDecoder extends BaseProtocolDecoder {
                     break;
 
                 case HEADER_GID:
-                    // try to get previous unique id, sometimes it's ok if it doesn't exist
-                    String currentUniqueID = "";
-                    DeviceSession currentDeviceSession = getDeviceSession(channel, remoteAddress);
-
-                    if (currentDeviceSession != null) {
-                        long currentDeviceID = currentDeviceSession.getDeviceId();
-
-                        if (currentDeviceID != 0) {
-                            Device device = Context.getIdentityManager().getById(currentDeviceID);
-
-                            currentUniqueID = device.getUniqueId();
-                        }
-                    }
+                    // get previous device unique id
+                    String currentUniqueID = Context.getIdentityManager().getById(position.getDeviceId()).getUniqueId();
 
                     // try to compute new unique id
                     if (overwriteIndex > currentUniqueID.length()) {
@@ -174,21 +174,8 @@ public class Pt502ProtocolDecoder extends BaseProtocolDecoder {
             return null;
         }
 
-        if (position.getDeviceId() == 0) {
-            DeviceSession deviceSession = getDeviceSession(channel, remoteAddress);
 
-            if (deviceSession == null) {
-                return null;
-            }
-
-            if (deviceSession.getDeviceId() == 0) {
-                return null;
-            }
-
-            position.setDeviceId(deviceSession.getDeviceId());
-        }
-
-        getLastLocation(position, null);
+        fillMissingWithLastLocation(position);
 
         return position;
     }
