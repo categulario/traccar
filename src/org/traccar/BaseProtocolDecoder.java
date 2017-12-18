@@ -227,9 +227,6 @@ public abstract class BaseProtocolDecoder extends ExtendedObjectDecoder {
         if (position.getAccuracy() == 0) {
             position.setAccuracy(last.getAccuracy());
         }
-        if (position.getDeviceTime() == null) {
-            position.setDeviceTime(new Date());
-        }
     }
 
     @Override

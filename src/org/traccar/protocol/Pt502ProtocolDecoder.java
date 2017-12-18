@@ -27,6 +27,7 @@ import org.traccar.Context;
 
 import java.net.SocketAddress;
 import java.util.regex.Pattern;
+import java.util.Date;
 import java.nio.ByteBuffer;
 
 public class Pt502ProtocolDecoder extends BaseProtocolDecoder {
@@ -235,6 +236,10 @@ public class Pt502ProtocolDecoder extends BaseProtocolDecoder {
         }
 
         fillMissingWithLastLocation(position);
+
+        if (position.getDeviceTime() == null) {
+            position.setDeviceTime(new Date());
+        }
 
         return position;
     }
