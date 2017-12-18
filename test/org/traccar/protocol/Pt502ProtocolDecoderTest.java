@@ -69,6 +69,9 @@ public class Pt502ProtocolDecoderTest extends ProtocolTest {
         Assert.assertNotNull(((Position) decoder.decode(null, null, binary(
                 "407f0108013702040633342e303030").toString(0, 15, Charset.forName("US-ASCII")))).getDeviceTime());
 
+        Assert.assertNotNull(((Position) decoder.decode(null, null, binary(
+                "407f0108013702040633342e303030").toString(0, 15, Charset.forName("US-ASCII")))).getFixTime());
+
         verifyPosition(decoder, text(
                 "$POS,216769295715,163237.000,A,3258.1738,S,02755.4350,E,0.00,215.88,100915,,,A/0000,0//232300//5b3/"),
                 position("2015-09-10 16:32:37.000", true, -32.96956, 27.92392));

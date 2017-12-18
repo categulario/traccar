@@ -240,6 +240,9 @@ public class Pt502ProtocolDecoder extends BaseProtocolDecoder {
         if (position.getDeviceTime() == null) {
             position.setDeviceTime(new Date());
         }
+        if (position.getFixTime() == null) {
+            position.setFixTime(new Date(0));
+        }
 
         return position;
     }
