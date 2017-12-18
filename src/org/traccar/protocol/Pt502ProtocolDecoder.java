@@ -150,7 +150,7 @@ public class Pt502ProtocolDecoder extends BaseProtocolDecoder {
         boolean gotNewInfo = false;
 
         // need last position because we are processing deltas
-        Position lastPosition;
+        Position lastPosition = Context.getIdentityManager().getLastPosition(position.getDeviceId());
 
         while (msg.hasRemaining()) {
             byte infoType = msg.get();
@@ -198,8 +198,6 @@ public class Pt502ProtocolDecoder extends BaseProtocolDecoder {
                     break;
 
                 case HEADER_LATITUDE:
-                    lastPosition = Context.getIdentityManager().getLastPosition(position.getDeviceId());
-
                     if (lastPosition == null) {
                         break;
                     }
@@ -213,8 +211,6 @@ public class Pt502ProtocolDecoder extends BaseProtocolDecoder {
                     break;
 
                 case HEADER_LONGITUDE:
-                    lastPosition = Context.getIdentityManager().getLastPosition(position.getDeviceId());
-
                     if (lastPosition == null) {
                         break;
                     }
@@ -235,7 +231,7 @@ public class Pt502ProtocolDecoder extends BaseProtocolDecoder {
             return null;
         }
 
-        fillMissingWithLastLocation(position);
+        fillMissing(position, lastPosition);
 
         if (position.getDeviceTime() == null) {
             position.setDeviceTime(new Date());

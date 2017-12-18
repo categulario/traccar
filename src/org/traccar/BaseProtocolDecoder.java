@@ -191,14 +191,12 @@ public abstract class BaseProtocolDecoder extends ExtendedObjectDecoder {
     }
 
     /**
-     * Takes a position and fills missing fields in place using last position's data
-     * it also sets device time as current timestamp if not set previously
+     * Fills missing fields from position using information from last
      * @param position The position to fill
+     * @param last The position whose fields will be used to fill the holes
      * @return void
      */
-    public void fillMissingWithLastLocation(Position position) {
-        Position last = Context.getIdentityManager().getLastPosition(position.getDeviceId());
-
+    public void fillMissing(Position position, Position last) {
         if (last == null) {
             return;
         }
