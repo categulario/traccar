@@ -1,12 +1,29 @@
 package org.traccar.protocol;
 
 import org.junit.Test;
+import org.junit.Assert;
 import org.traccar.ProtocolTest;
 import org.traccar.model.Position;
 
 import java.nio.charset.Charset;
 
 public class Pt502ProtocolDecoderTest extends ProtocolTest {
+
+    @Test
+    public void testGetCoordinateString() throws Exception {
+        Pt502ProtocolDecoder decoder = new Pt502ProtocolDecoder(new Pt502Protocol());
+
+        Assert.assertEquals("10030.0000S", decoder.getCoordinateString(-100.5));
+        Assert.assertEquals("1300.0000N", decoder.getCoordinateString(13.0));
+    }
+
+    @Test
+    public void testOverwriteDouble() throws Exception {
+        Pt502ProtocolDecoder decoder = new Pt502ProtocolDecoder(new Pt502Protocol());
+
+        Assert.assertEquals(-151.0, decoder.overwriteCoordinate(-150.5, 2, "100.0000"), 0.001);
+        Assert.assertEquals(32.5, decoder.overwriteCoordinate(31.0, 1, "230.0000"), 0.001);
+    }
 
     @Test
     public void testDecode() throws Exception {

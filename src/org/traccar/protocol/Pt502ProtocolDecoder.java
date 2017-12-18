@@ -100,6 +100,31 @@ public class Pt502ProtocolDecoder extends BaseProtocolDecoder {
         }
     }
 
+    public String getCoordinateString(double coordinate) {
+        String sign = coordinate > 0 ? "N" : "S";
+        int deg = (int) Math.floor(Math.abs(coordinate));
+        double min = 60 * Math.abs(coordinate % 1);
+
+        return String.format("%d%07.4f%s", deg, min, sign);
+    }
+
+    public double overwriteCoordinate(double original, int index, String data) {
+        String prevStr = getCoordinateString(original);
+        String newLatStr = prevStr.substring(0, index) + data + prevStr.charAt(prevStr.length() - 1);
+
+        Pattern p = new PatternBuilder()
+            .number("(d+)(dd.dddd)")
+            .expression("([NS])")
+            .compile();
+        Parser parser = new Parser(p, newLatStr);
+
+        if (!parser.matches()) {
+            return 0;
+        }
+
+        return parser.nextCoordinate();
+    }
+
     private Position decodeDelta(
             Channel channel, SocketAddress remoteAddress, ByteBuffer msg, Position position) throws Exception {
         if (msg.get() != '@') {
@@ -118,9 +143,13 @@ public class Pt502ProtocolDecoder extends BaseProtocolDecoder {
 
         position.setDeviceId(deviceSession.getDeviceId());
 
-        msg.get(); // Skip second byte whose purpose is still unknown
+        // Skip second byte whose purpose is still unknown
+        msg.get();
 
         boolean gotNewInfo = false;
+
+        // need last position because we are processing deltas
+        Position lastPosition;
 
         while (msg.hasRemaining()) {
             byte infoType = msg.get();
@@ -166,6 +195,37 @@ public class Pt502ProtocolDecoder extends BaseProtocolDecoder {
                         gotNewInfo = true;
                     }
                     break;
+
+                case HEADER_LATITUDE:
+                    lastPosition = Context.getIdentityManager().getLastPosition(position.getDeviceId());
+
+                    if (lastPosition == null) {
+                        break;
+                    }
+
+                    double newLatitude = overwriteCoordinate(lastPosition.getLatitude(), overwriteIndex, strInfo);
+                    if (newLatitude != 0) {
+                        position.setLatitude(newLatitude);
+
+                        gotNewInfo = true;
+                    }
+                    break;
+
+                case HEADER_LONGITUDE:
+                    lastPosition = Context.getIdentityManager().getLastPosition(position.getDeviceId());
+
+                    if (lastPosition == null) {
+                        break;
+                    }
+
+                    double newLongitude = overwriteCoordinate(lastPosition.getLongitude(), overwriteIndex, strInfo);
+                    if (newLongitude != 0) {
+                        position.setLongitude(newLongitude);
+
+                        gotNewInfo = true;
+                    }
+                    break;
+
                 default: break;
             }
         }
@@ -173,7 +233,6 @@ public class Pt502ProtocolDecoder extends BaseProtocolDecoder {
         if (!gotNewInfo) {
             return null;
         }
-
 
         fillMissingWithLastLocation(position);
 
